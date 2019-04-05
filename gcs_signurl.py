@@ -1,13 +1,15 @@
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import click
+from google.cloud.storage._signing import generate_signed_url
+from google.oauth2 import service_account
 
 
 BASE_URL = "https://storage.googleapis.com"
 
 
-def _DurationToTimeDelta(duration):
+def _DurationToTimeDelta(duration: str) -> timedelta:
     # Borrowed from here: https://github.com/GoogleCloudPlatform/gsutil/blob/master/gslib/commands/signurl.py#L186
     r"""Parses the given duration and returns an equivalent timedelta."""
 
@@ -43,7 +45,7 @@ with s = seconds, m = minutes, h = hours, d = days.
               help=_duration_help)
 @click.argument("key_file", type=click.File())
 @click.argument("resource")
-def sign(duration, credentials_file, resource):
+def sign(duration: str, key_file: click.File, resource: str) -> None:
     """
     Generate a signed URL that embeds authentication data
     so the URL can be used by someone who does not have a Google account.
@@ -59,3 +61,8 @@ def sign(duration, credentials_file, resource):
 
     Example: gcs-signurl /tmp/creds.json /foo-bucket/bar-file.txt
     """
+    creds = service_account.Credentials.from_service_account_file(key_file.name)
+    till = datetime.now() + _DurationToTimeDelta(duration)
+    signed_url = generate_signed_url(creds, resource, till)
+    full_url = BASE_URL + signed_url
+    click.echo(full_url)
