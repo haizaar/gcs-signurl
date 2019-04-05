@@ -11,7 +11,7 @@ with open("LICENSE") as f:
 
 setup(
     name="gcs-signurl",
-    version="0.0.0",
+    version="0.0.1",
     description="Google Cloud Storage URL signer that supports looong expiration dates",
     long_description=readme,
     author="Zaar Hai",
