@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+click = "*"
+google-cloud-storage = "*"
+
+[dev-packages]
+bumpversion = "*"
+flake8 = "*"
+pygments = "*"
+"collective.checkdocs" = "*"
+
+[requires]
+python_version = "3.6"
