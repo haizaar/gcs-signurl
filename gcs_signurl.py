@@ -1,12 +1,12 @@
 import re
+import warnings
 from datetime import datetime, timedelta
 
 import click
-from google.cloud.storage._signing import generate_signed_url
+from google.cloud.storage.blob import Blob
+from google.cloud.storage.bucket import Bucket
+from google.cloud.storage.client import Client
 from google.oauth2 import service_account
-
-
-BASE_URL = "https://storage.googleapis.com"
 
 
 def _DurationToTimeDelta(duration: str) -> timedelta:
@@ -50,7 +50,7 @@ def sign(duration: str, key_file: click.File, resource: str) -> None:
     Generate a signed URL that embeds authentication data
     so the URL can be used by someone who does not have a Google account.
 
-    This tool exists to overcome a shortcomming of gsutil signurl that limits
+    This tool exists to overcome a shortcoming of gsutil signurl that limits
     expiration to 7 days only.
 
     KEY_FILE should be a path to a JSON file containing service account private key.
@@ -61,8 +61,23 @@ def sign(duration: str, key_file: click.File, resource: str) -> None:
 
     Example: gcs-signurl /tmp/creds.json /foo-bucket/bar-file.txt
     """
+    bucket_name, _, path = resource.lstrip("/").partition("/")
     creds = service_account.Credentials.from_service_account_file(key_file.name)
     till = datetime.now() + _DurationToTimeDelta(duration)
-    signed_url = generate_signed_url(creds, resource, till)
-    full_url = BASE_URL + signed_url
-    click.echo(full_url)
+
+    # Ignoring potential warning about end user credentials.
+    # We don't actually do any operations on the client, but
+    # unfortunately the only public API in google-cloud-storage package
+    # requires building client->bucket->blob
+    message = "Your application has authenticated using end user credentials from Google Cloud SDK"
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=message)
+        client = Client()
+    bucket = Bucket(client, bucket_name)
+    blob = Blob(path, bucket)
+
+    # Not passing version argument - to support compatibility with
+    # google-cloud-storage<=1.14.0. They default to version 2 and hopefully
+    # will not change it anytime soon.
+    signed_url = blob.generate_signed_url(expiration=till, credentials=creds)
+    click.echo(signed_url)
